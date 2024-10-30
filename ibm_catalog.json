@@ -1,0 +1,318 @@
+{
+	"products": [
+		{
+			"name": "dps-deploy-arch-ibm-slz-ocp",
+			"label": "Data Product Solution on IBM Cloud",
+			"version": "v0.0.1",
+			"product_kind": "solution",
+			"tags": [
+                "ocp",
+                "OpenShift",
+                "ROKS",
+				"data-product-solution",
+				"terraform"
+			],
+			"keywords": [
+				"vpc",
+				"terraform",
+				"solution",
+				"Red Hat OpenShift Container Platform",
+				"Data Product Solution",				
+				"OCP"
+			],
+			"short_description": "Deploys the Data Product Solution and its pre-requisites into an OpenShift on IBM Cloud cluster.",
+            "long_description": "Deploy the Data Product Solution and all of its pre-requisites including the .... into a new OpenShift cluster.",
+
+			"offering_docs_url": "https://cloud.ibm.com/docs/secure-infrastructure-vpc?topic=secure-infrastructure-vpc-overview#overview-ocp",
+			"offering_icon_url": "https://raw.githubusercontent.com/terraform-ibm-modules/documentation/main/icons/RH_OpenShift.svg",
+			"provider_name": "IBM",
+			"features": [
+				{
+					"title_i18n": {
+						"en": "Creates Open Shift Container Platform clusters for workloads"
+					},
+					"description_i18n": {
+						"en": "Creates and configures one or more clusters to handle workloads. You can specify the version and cluster size."
+					}
+				},
+				{
+					"title_i18n": {
+						"en": "Creates worker pools"
+					},
+					"description_i18n": {
+						"en": "With worker pools, you can group and manage worker nodes with similar configurations, such as compute resources and availability zones."
+					}
+				},
+				{
+					"title_i18n": {
+						"en": "Configures subnets for containers"
+					},
+					"description_i18n": {
+						"en": "Configures the subnets for the cluster, and specifies the subnets to deploy the worker nodes in."
+					}
+				},
+				{
+					"title_i18n": {
+						"en": "Supports private and public endpoints"
+					},
+					"description_i18n": {
+						"de": "Konfiguriert private und öffentliche Endpunkte für den Cluster."
+					}
+				},
+				{
+					"title_i18n": {
+						"de": "Konfiguriert Ingress",
+						"en": "Configures ingress"
+					},
+					"description_i18n": {
+						"de": "Konfiguriert den Ingress-Controller für den Cluster, der für die Weiterleitung des externen Datenverkehrs an die entsprechenden Services im Cluster verantwortlich ist",
+						"en": "Configures the ingress controller for the cluster, responsible for routing external traffic to the appropriate services within the cluster."
+					}
+				}
+			],
+			"flavors": [
+				{
+					"label": "QuickStart",
+					"name": "quickstart",
+					"compliance": {},
+					"iam_permissions": [
+						{
+							"service_name": "cloud-object-storage",
+							"role_crns": [
+								"crn:v1:bluemix:public:iam::::serviceRole:Manager"
+							]
+						},
+						{
+							"service_name": "iam-identity",
+							"role_crns": [
+								"crn:v1:bluemix:public:iam::::role:Administrator"
+							]
+						},
+						{
+							"service_name": "kms",
+							"role_crns": [
+								"crn:v1:bluemix:public:iam::::serviceRole:Manager"
+							]
+						},
+						{
+							"service_name": "containers-kubernetes",
+							"role_crns": [
+								"crn:v1:bluemix:public:iam::::role:Administrator"
+							]
+						},
+						{
+							"service_name": "is.vpc",
+							"role_crns": [
+								"crn:v1:bluemix:public:iam::::role:Administrator"
+							]
+						}
+					],
+					"architecture": {
+						"features": [
+							{
+								"title": "Workload VPC with two subnets, in two zones, allow-all ACL and Security Group",
+								"description": "Yes"
+							},
+							{
+								"title": "One OCP cluster in workload VPC with two worker nodes, public endpoint enabled",
+								"description": "Yes"
+							},
+							{
+								"title": "Key Protect for cluster encryption keys",
+								"description": "Yes"
+							},
+							{
+								"title": "Cloud Object Storage instance (required for cluster)",
+								"description": "Yes"
+							}
+						],
+						"diagrams": [
+							{
+								"diagram": {
+									"url": "https://raw.githubusercontent.com/terraform-ibm-modules/terraform-ibm-landing-zone/main/reference-architectures/roks-quickstart.drawio.svg",
+									"caption": "Red Hat OpenShift Container Platform on VPC landing zone - QuickStart variation",
+									"type": "image/svg+xml"
+								},
+								"description": "The QuickStart variation of the Red Hat OpenShift Container Platform on VPC landing zone deployable architecture creates one Red Hat OpenShift Container Platform cluster in workload VPC with two worker nodes and public endpoint enabled. The QuickStart variation is designed to help you get started quickly, but is not highly available or validated for the IBM Cloud Framework for Financial Services."
+							}
+						]
+					},
+					"release_notes_url": "https://cloud.ibm.com/docs/secure-infrastructure-vpc?topic=secure-infrastructure-vpc-secure-infrastructure-vpc-relnotes",
+					"configuration": [
+						{
+							"key": "region",
+							"type": "string",
+							"default_value": "us-south",
+							"description": "Region where VPC will be created. To find your VPC region, use `ibmcloud is regions` command to find available regions.",
+							"required": true,
+							"custom_config": {
+								"type": "vpc_region",
+								"grouping": "deployment",
+								"original_grouping": "deployment",
+								"config_constraints": {
+									"generationType": "2"
+								}
+							}
+						},
+						{
+							"key": "ibmcloud_api_key",
+							"type": "password",
+							"description": "The IBM Cloud platform API key needed to deploy IAM enabled resources.",
+							"required": true
+						},
+						{
+							"key": "prefix",
+							"type": "string",
+							"default_value": "lz-dps-qs",
+							"description": "A unique identifier for resources that is prepended to resources that are provisioned. Must begin with a lowercase letter and end with a lowercase letter or number. Must be 13 or fewer characters.",
+							"required": false
+						},
+						{
+							"key": "resource_tags",
+							"type": "array",
+							"default_value": "[]",
+							"description": "Optional list of tags to be added to created resources",
+							"required": false
+						},
+						{
+							"key": "kube_version",
+							"type": "string",
+							"default_value": "default",
+							"description": "Kubernetes version to use for cluster. To get available versions, use the IBM Cloud CLI command `ibmcloud ks versions`. Also supports passing the string 'default' (current IKS default recommended version).",
+							"required": false
+						},
+						{
+							"key": "flavor",
+							"type": "string",
+							"default_value": "bx2.4x16",
+							"description": "Machine type for cluster. Use the IBM Cloud CLI command `ibmcloud ks flavors` to find valid machine types",
+							"required": false
+						},
+						{
+							"key": "entitlement",
+							"type": "string",
+							"default_value": "__NULL__",
+							"description": "Reduces the cost of additional OCP in OpenShift clusters. If you do not have an entitlement, leave as null. Use Cloud Pak with OCP License entitlement to create the OpenShift cluster. Specify `cloud_pak` only if you use the cluster with a Cloud Pak that has an OpenShift entitlement. The value is set only when the cluster is created.",
+							"required": false
+						}
+					],
+					"outputs": [
+						{
+							"key": "vpc_resource_list",
+							"description": "List of VPC with VSI and Cluster deployed on the VPC."
+						},
+						{
+							"key": "vpc_dns",
+							"description": "List of VPC DNS details for each of the VPCs."
+						},
+						{
+							"key": "management_cluster_id",
+							"description": "The id of the management cluster. If the cluster name does not exactly match the prefix-management-cluster pattern it will be null."
+						},
+						{
+							"key": "cluster_data",
+							"description": "List of cluster data"
+						},
+						{
+							"key": "cluster_names",
+							"description": "List of create cluster names"
+						},
+						{
+							"key": "vpc_names",
+							"description": "A list of the names of the VPC"
+						},
+						{
+							"key": "key_management_guid",
+							"description": "GUID for KMS instance"
+						},
+						{
+							"key": "key_rings",
+							"description": "Key rings created by module"
+						},
+						{
+							"key": "management_cluster_public_service_endpoint_url",
+							"description": "The public service endpoint URL of the Management cluster, if not then null."
+						},
+						{
+							"key": "config",
+							"description": "Output configuration as encoded JSON"
+						},
+						{
+							"key": "management_cluster_ingress_hostname",
+							"description": "The hostname assigned for the Management cluster ingress subdomain, if not then null."
+						},
+						{
+							"key": "transit_gateway_name",
+							"description": "The name of the transit gateway"
+						},
+						{
+							"key": "prefix",
+							"description": "The prefix that is associated with all resources"
+						},
+						{
+							"key": "resource_group_data",
+							"description": "List of resource groups data used within landing zone."
+						},
+						{
+							"key": "key_map",
+							"description": "Map of ids and keys for keys created"
+						},
+						{
+							"key": "workload_cluster_console_url",
+							"description": "Workload cluster console URL, if not then null."
+						},
+						{
+							"key": "workload_cluster_public_service_endpoint_url",
+							"description": "The public service endpoint URL of the Workload cluster, if not then null."
+						},
+						{
+							"key": "workload_cluster_ingress_hostname",
+							"description": "The hostname assigned for the Workload cluster ingress subdomain, if not then null."
+						},
+						{
+							"key": "management_cluster_private_service_endpoint_url",
+							"description": "The private service endpoint URL of the Management cluster, if not then null."
+						},
+						{
+							"key": "subnet_data",
+							"description": "List of Subnet data created"
+						},
+						{
+							"key": "workload_cluster_id",
+							"description": "The id of the workload cluster. If the cluster name does not exactly match the prefix-workload-cluster pattern it will be null."
+						},
+						{
+							"key": "management_cluster_console_url",
+							"description": "Management cluster console URL, if not then null."
+						},
+						{
+							"key": "key_management_name",
+							"description": "Name of key management service"
+						},
+						{
+							"key": "workload_cluster_private_service_endpoint_url",
+							"description": "The private service endpoint URL of the Workload cluster, if not then null."
+						},
+						{
+							"key": "vpc_data",
+							"description": "List of VPC data"
+						},
+						{
+							"key": "resource_group_names",
+							"description": "List of resource groups names used within landing zone."
+						},
+						{
+							"key": "transit_gateway_data",
+							"description": "Created transit gateway data"
+						},
+						{
+							"key": "key_management_crn",
+							"description": "CRN for KMS instance"
+						}
+					],
+					"install_type": "fullstack"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,4 @@
+ibmcloud_api_key = "yourAPIkey"
+prefix = "gas1-dps"
+region = "us-east"
+ocp_version = "4.16"
