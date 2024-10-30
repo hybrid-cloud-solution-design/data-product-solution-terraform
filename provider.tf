@@ -9,7 +9,7 @@ provider "ibm" {
 
 provider "kubernetes" {
   host  = data.ibm_container_cluster_config.dps_cluster_config.host
-  token = data.ibm_container_cluster_config.dps_cluster_config.host
+  token = data.ibm_container_cluster_config.dps_cluster_config.token
 }
 
 provider "helm" {
@@ -21,5 +21,5 @@ provider "helm" {
 
 provider "kubectl" {
   host                   = data.ibm_container_cluster_config.dps_cluster_config.host
-  token                  = data.ibm_container_cluster_config.dps_cluster_config.host
+  token                  = data.ibm_container_cluster_config.dps_cluster_config.token
 }
