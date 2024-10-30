@@ -20,6 +20,7 @@ provider "helm" {
 }
 
 provider "kubectl" {
-  host                   = data.ibm_container_cluster_config.dps_cluster_config.host
-  token                  = data.ibm_container_cluster_config.dps_cluster_config.token
+  host             = data.ibm_container_cluster_config.dps_cluster_config.host
+  token            = data.ibm_container_cluster_config.dps_cluster_config.token
+  load_config_file = false
 }
