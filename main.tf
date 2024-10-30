@@ -70,8 +70,8 @@ locals {
     {
       subnet_prefix                     = "default"
       pool_name                         = "default" # ibm_container_vpc_cluster automatically names default pool "default" (See https://github.com/IBM-Cloud/terraform-provider-ibm/issues/2849)
-      machine_type                      = "bx2.4x16"
-      workers_per_zone                  = 1
+      machine_type                      = "bx2.8x32"
+      workers_per_zone                  = 2
       operating_system                  = "REDHAT_8_64"
       secondary_storage                 = "300gb.5iops-tier"
     },
@@ -138,7 +138,6 @@ resource "ibm_container_addons" "addons" {
             "clusterEncryption":"false",
             "taintNodes":"true",
             "workerPool":"odf"
-
         }
         PARAMETERS_JSON
     }
@@ -196,8 +195,15 @@ resource "helm_release" "pipelines_operator" {
 
   ##############################################################################
   # Install the pipeline tasks 
+  # wait 5 mins till pipeline operator fully initializes itself
   ##############################################################################  
+
+  resource "time_sleep" "wait_5_minutes" {
+    depends_on = [helm_release.pipelines_operator]
+
+    create_duration = "300s"
+  }  
   resource "kubectl_manifest" "ibm-pak" {
-    depends_on = [module.ocp_base, helm_release.pipelines_operator]
+    depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
     yaml_body = file("${path.module}/pipeline/ibm-pak.yaml")
 }
