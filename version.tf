@@ -8,5 +8,9 @@ terraform {
       source  = "IBM-Cloud/ibm"
       version = "1.68.0"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
   }
 }

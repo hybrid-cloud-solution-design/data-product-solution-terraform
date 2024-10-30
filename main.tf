@@ -196,8 +196,7 @@ resource "helm_release" "pipelines_operator" {
   ##############################################################################
   # Install the pipeline tasks 
   ##############################################################################  
-  resource "kubernetes_manifest" "ibm-pak" {
-    depends_on = [module.ocp_base, pipelines_operator]
-    manifest = yamldecode(file("${path.module}/pipelines/ibm-pak.yaml"))
-    #yaml_body = file("${path.module}/pipelines/ibm-pak.yaml")
+  resource "kubectl_manifest" "ibm-pak" {
+    depends_on = [module.ocp_base, helm_release.pipelines_operator]
+    yaml_body = file("${path.module}/pipeline/ibm-pak.yaml")
 }
