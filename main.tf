@@ -127,7 +127,7 @@ resource "ibm_container_addons" "addons" {
   cluster = module.ocp_base.cluster_name
   addons {
     name = "openshift-data-foundation"
-    version = "4.12.0"
+    version = "4.16.0"
     parameters_json = <<PARAMETERS_JSON
         {
             "osdSize":"2048Gi",
