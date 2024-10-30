@@ -136,7 +136,8 @@ resource "ibm_container_addons" "addons" {
             "odfDeploy":"true",
             "billingType":"advanced",
             "clusterEncryption":"false",
-            "workerPools":"odf"
+            "taintNodes":"true"
+            "workerPool":"odf"
 
         }
         PARAMETERS_JSON
