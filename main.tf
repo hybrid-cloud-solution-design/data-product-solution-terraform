@@ -193,17 +193,64 @@ resource "helm_release" "pipelines_operator" {
   }
 }
 
-  ##############################################################################
-  # Install the pipeline tasks 
-  # wait 5 mins till pipeline operator fully initializes itself
-  ##############################################################################  
-
-  resource "time_sleep" "wait_5_minutes" {
-    depends_on = [helm_release.pipelines_operator]
-
-    create_duration = "300s"
-  }  
-  resource "kubectl_manifest" "ibm-pak" {
-    depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
-    yaml_body = file("${path.module}/pipeline/ibm-pak.yaml")
+##############################################################################
+# Patch ODF classes
+##############################################################################  
+resource "kubernetes_annotations" "ocs-storagecluster-cephfs" {
+  depends_on = [ibm_container_addons.addons]
+  api_version = "storage.k8s.io/v1"
+  kind        = "StorageClass"
+  metadata {
+    name = "ocs-storagecluster-cephfs"
+  }
+  annotations = {
+    "storageclass.kubernetes.io/is-default-class" = "true"
+  }
 }
+
+resource "kubernetes_config_map_v1_data" "addon-vpc-block-csi-driver-configmap" {
+  depends_on = [ibm_container_addons.addons]
+  metadata {
+    name = "addon-vpc-block-csi-driver-configmap"
+  }
+  data = {
+    "IsStorageClassDefault" = "false"
+  }
+}
+
+##############################################################################
+# Install the pipeline tasks 
+# wait 5 mins till pipeline operator fully initializes itself
+##############################################################################  
+
+resource "time_sleep" "wait_5_minutes" {
+  depends_on = [helm_release.pipelines_operator]
+
+  create_duration = "300s"
+}  
+resource "kubectl_manifest" "ibm-pak" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
+  yaml_body = file("${path.module}/pipeline/ibm-pak.yaml")
+}
+
+resource "kubectl_manifest" "ibmcloud-secrets-manager-get" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
+  yaml_body = file("${path.module}/pipeline/ibmcloud-secrets-manager-get.yaml")
+}
+
+resource "kubectl_manifest" "pipeline-out-cm" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
+  yaml_body = file("${path.module}/pipeline/pipeline-output-cm.yaml")
+}
+
+resource "kubectl_manifest" "cluster-role-binding" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
+  yaml_body = file("${path.module}/pipeline/crb.yaml")
+}
+
+resource "kubectl_manifest" "dps-deployer-pipeline" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
+  yaml_body = file("${path.module}/pipeline/dps-deployer-pipeline.yaml")
+}
+
+

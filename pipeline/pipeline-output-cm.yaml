@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: pipeline-output
+  namespace: default
+data:
+  Status: Resource not fully provisioned. Please check pipeline runs to see current status of the pipeline.  
