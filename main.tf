@@ -212,7 +212,7 @@ resource "kubernetes_config_map_v1_data" "addon-vpc-block-csi-driver-configmap" 
   depends_on = [ibm_container_addons.addons]
   metadata {
     name = "addon-vpc-block-csi-driver-configmap"
-    namespace = kube-system
+    namespace = "kube-system"
   }
   data = {
     "IsStorageClassDefault" = "false"
