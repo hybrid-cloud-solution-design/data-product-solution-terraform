@@ -124,6 +124,7 @@ module "ocp_base" {
 
 resource "ibm_container_addons" "addons" {
   depends_on = [ module.ocp_base ]
+  manage_all_addons = "false"
   cluster = module.ocp_base.cluster_name
   addons {
     name = "openshift-data-foundation"
