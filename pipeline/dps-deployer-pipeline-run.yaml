@@ -37,7 +37,7 @@ spec:
     - name: cp4d-version
       value: "5.0.2"
     - name: ibm-entitlement-key
-      value: "${api-key}"
+      value: "${ibm-entitlement-key}"
     - name: cpd-sequential-install
       value: "True"
     - name: cpd-use-fs-iam

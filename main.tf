@@ -256,4 +256,19 @@ resource "kubectl_manifest" "dps-deployer-pipeline" {
   yaml_body = file("${path.module}/pipeline/dps-deployer-pipeline.yaml")
 }
 
+#########################################
+# start pipeline run
+#########################################
+
+resource "null_resource" "pipeline-run" {
+  provisioner "local-exec" {
+    command = "${path.module}/pipeline/startPipeline.sh"
+
+    environment = {
+      IBM_ENTITLEMENT_KEY = var.ibm_entitlement_key
+      KUBECONFIG = local.kubeconfig
+    }
+  }
+}
+
 
