@@ -70,15 +70,15 @@ locals {
     {
       subnet_prefix                     = "default"
       pool_name                         = "default" # ibm_container_vpc_cluster automatically names default pool "default" (See https://github.com/IBM-Cloud/terraform-provider-ibm/issues/2849)
-      machine_type                      = "bx2.8x32"
-      workers_per_zone                  = 2
+      machine_type                      = "bx2.16x64"
+      workers_per_zone                  = 1
       operating_system                  = "REDHAT_8_64"
       secondary_storage                 = "300gb.5iops-tier"
     },
     {
       subnet_prefix                     = "default"
       pool_name                         = "odf"
-      machine_type                      = "bx2.8x32"
+      machine_type                      = "bx2.16x64"
       workers_per_zone                  = 1
       secondary_storage                 = "300gb.5iops-tier"
       operating_system                  = "REDHAT_8_64"
