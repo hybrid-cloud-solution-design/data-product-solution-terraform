@@ -8,6 +8,12 @@ variable "ibmcloud_api_key" {
   sensitive   = true
 }
 
+variable "ibm_entitlement_key" {
+  type        = string
+  description = "The IBM entitlement key"
+  sensitive   = true
+}
+
 variable "prefix" {
   type        = string
   description = "Prefix for name of all resource created by this example"

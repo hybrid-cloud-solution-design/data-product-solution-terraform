@@ -210,6 +210,7 @@ resource "kubernetes_annotations" "ocs-storagecluster-cephfs" {
 
 resource "kubernetes_config_map_v1_data" "addon-vpc-block-csi-driver-configmap" {
   depends_on = [ibm_container_addons.addons]
+  force = true
   metadata {
     name = "addon-vpc-block-csi-driver-configmap"
     namespace = "kube-system"
