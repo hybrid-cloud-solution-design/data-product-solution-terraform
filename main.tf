@@ -70,15 +70,15 @@ locals {
     {
       subnet_prefix                     = "default"
       pool_name                         = "default" # ibm_container_vpc_cluster automatically names default pool "default" (See https://github.com/IBM-Cloud/terraform-provider-ibm/issues/2849)
-      machine_type                      = "bx2.16x64"
-      workers_per_zone                  = 1
+      machine_type                      = var.worker-machine-type
+      workers_per_zone                  = var.workers_per_zone
       operating_system                  = "REDHAT_8_64"
       secondary_storage                 = "300gb.5iops-tier"
     },
     {
       subnet_prefix                     = "default"
       pool_name                         = "odf"
-      machine_type                      = "bx2.16x64"
+      machine_type                      = var.odf-machine-type
       workers_per_zone                  = 1
       secondary_storage                 = "300gb.5iops-tier"
       operating_system                  = "REDHAT_8_64"
@@ -104,7 +104,7 @@ locals {
 module "ocp_base" {
   source               = "terraform-ibm-modules/base-ocp-vpc/ibm"
   version              = "3.34.0"
-  cluster_name         = "${var.prefix}-cluster"
+  cluster_name         = "${var.cluster_name}"
   resource_group_id    = module.resource_group.resource_group_id
   region               = var.region
   force_delete_storage = true

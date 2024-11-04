@@ -57,3 +57,25 @@ variable "ocp_entitlement" {
   description = "Value that is applied to the entitlements for OCP cluster provisioning"
   default     = "cloud_pak"
 }
+
+variable "worker-machine-type" {
+  type        = string
+  description = "Worker node machine type. Should be a GPU flavor. Use 'ibmcloud ks flavors --zone <zone>' to retrieve the list."
+  default = "bx2.16x64"
+}
+
+variable "workers_per_zone" {
+  type        = number
+  description = "Worker nodes per zone"
+  default = 2
+}
+variable "odf-machine-type" {
+  type        = string
+  description = "ODF node machine type. Should be a GPU flavor. Use 'ibmcloud ks flavors --zone <zone>' to retrieve the list."
+  default = "bx2.16x64"
+}
+variable "cluster_name" {
+  type        = string
+  description = "Name of new IBM Cloud OpenShift Cluster"
+  default = "data-product-pilot"
+}
