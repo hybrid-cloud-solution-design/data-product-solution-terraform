@@ -261,6 +261,7 @@ resource "kubectl_manifest" "dps-deployer-pipeline" {
 #########################################
 
 resource "null_resource" "pipeline-run" {
+  depends_on = [module.ocp_base, helm_release.pipelines_operator, time_sleep.wait_5_minutes]
   provisioner "local-exec" {
     command = "${path.module}/pipeline/startPipeline.sh"
 
