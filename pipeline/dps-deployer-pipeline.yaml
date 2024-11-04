@@ -41,7 +41,7 @@ spec:
     - name: cloud-pak-deployer-version
       type: string
       description: The Cloud Pak Deployer version you want to use for the deployment
-      default: "latest"
+      default: "v3.0.2"
     - name: ocp-client-version
       type: string
       description: Openshift client version
