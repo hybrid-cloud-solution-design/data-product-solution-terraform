@@ -53,7 +53,7 @@ resource "null_resource" "minio-setup" {
 # portal setup
 ############################################################################## 
 
-resource "null_resource" "minio-setup" {
+resource "null_resource" "portal-setup" {
   provisioner "local-exec" {
     command = "${path.module}/portal/setup.sh"
 
