@@ -1,0 +1,39 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: build-and-deploy-
+  namespace: dps-portal
+  labels:
+    tekton.dev/pipeline: build-and-deploy
+spec:
+  params:
+    - name: APP_NAME
+      value: portal
+    - name: GIT_REPO
+      value: 'https://github.ibm.com/data-product-solutions/portal.git'
+    - name: GIT_REVISION
+      value: main
+    - name: IMAGE_NAME
+      value: 'image-registry.openshift-image-registry.svc:5000/dps-portal/portal-app'
+    - name: PATH_CONTEXT
+      value: .
+  pipelineRef:
+    name: build-and-deploy
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  timeouts:
+    pipeline: 8h0m0s
+  workspaces:
+    - name: workspace
+      volumeClaimTemplate:
+        metadata:
+          creationTimestamp: null
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: ocs-storagecluster-cephfs
+          volumeMode: Filesystem
+        status: {}

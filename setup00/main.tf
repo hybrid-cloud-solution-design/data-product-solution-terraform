@@ -49,5 +49,18 @@ resource "null_resource" "minio-setup" {
     }
   }
 }
+##############################################################################
+# portal setup
+############################################################################## 
 
+resource "null_resource" "minio-setup" {
+  provisioner "local-exec" {
+    command = "${path.module}/portal/setup.sh"
+
+    environment = {
+      GIT_TOKEN = var.git_token
+      KUBECONFIG = local.kubeconfig
+    }
+  }
+}
 
