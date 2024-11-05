@@ -29,7 +29,8 @@ kubectl annotate -n minio-webhook secret git-token "tekton.dev/git-0"="https://g
 # need to wait till pipeline sa is correctly created for the namespace
 sleep 30
 echo "Link secret to pipeline account"
-kubectl secrets -n minio-webhook link pipeline git-token
+#oc secrets -n minio-webhook link pipeline git-token
+kubectl patch -n minio-webhook serviceaccount pipeline -p '{"secrets": [{"name": "git-token"}]}'
 
 echo "Set RBAC"
 kubectl apply -f minio/01-rbac.yaml
