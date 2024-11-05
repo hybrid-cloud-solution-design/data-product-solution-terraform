@@ -1,12 +1,12 @@
 #!/bin/bash
 
-kubestl_LOGIN=$(kubectl auth whoami -o json | jq -r .status.userInfo.username)
-if [ -z "$kubestl_LOGIN" ] ; then
+kubectl_LOGIN=$(kubectl auth whoami -o json | jq -r .status.userInfo.username)
+if [ -z "$kubectl_LOGIN" ] ; then
   echo "No OpenShift session available. Please login to your cluster or copy login command. Exiting..."
-  echo "kubestl login --token=sha256~yourToken --server=https://yourClusterURL:6443"
+  echo "kubectl login --token=sha256~yourToken --server=https://yourClusterURL:6443"
   exit 1
   else
-  echo "Logged as $kubestl_LOGIN"
+  echo "Logged as $kubectl_LOGIN"
 fi
 
 
@@ -21,24 +21,24 @@ if [ -z "$GIT_TOKEN" ] ; then
 fi
 
 echo "Create namespace"
-kubestl apply -f minio/00-namespace.yaml
+kubectl apply -f minio/00-namespace.yaml
 echo "Create git secret"
-kubestl create -n minio-webhook secret generic git-token --from-literal username="token" --from-literal password="$GIT_TOKEN" --type=kubernetes.io/basic-auth
+kubectl create -n minio-webhook secret generic git-token --from-literal username="token" --from-literal password="$GIT_TOKEN" --type=kubernetes.io/basic-auth
 echo "Annotate secret"
-kubestl annotate -n minio-webhook secret git-token "tekton.dev/git-0"="https://github.ibm.com"
+kubectl annotate -n minio-webhook secret git-token "tekton.dev/git-0"="https://github.ibm.com"
 # need to wait till pipeline sa is correctly created for the namespace
 sleep 30
 echo "Link secret to pipeline account"
-kubestl secrets -n minio-webhook link pipeline git-token
+kubectl secrets -n minio-webhook link pipeline git-token
 
 echo "Set RBAC"
-kubestl apply -f minio/01-rbac.yaml
+kubectl apply -f minio/01-rbac.yaml
 
-# export PRESTO_ENDPOINT=$(kubestl get -n cpd route ibm-lh-lakehouse-presto-01-presto-svc -o jsonpath='{.spec.host}')
+# export PRESTO_ENDPOINT=$(kubectl get -n cpd route ibm-lh-lakehouse-presto-01-presto-svc -o jsonpath='{.spec.host}')
 
 
 # echo "Create minio-webhook-secret"
-# kubestl create -n minio-webhook secret generic minio-webhook-secret \
+# kubectl create -n minio-webhook secret generic minio-webhook-secret \
 #   --from-literal PRESTO_CATALOG="marketplace" \
 #   --from-literal PRESTO_ENDPOINT="$PRESTO_ENDPOINT:443" \
 #   --from-literal PRESTO_SCHEMA="acme_m" \
@@ -48,18 +48,18 @@ kubestl apply -f minio/01-rbac.yaml
 
 
 # echo "Extract truststorebundle.jks"
-# kubestl extract --namespace cpd secret/ibm-lh-tls-secret --keys=truststorebundle.jks --to=.
+# kubectl extract --namespace cpd secret/ibm-lh-tls-secret --keys=truststorebundle.jks --to=.
 
 # echo "Create  lh-cert secret"
-# kubestl create -n minio-webhook secret generic lh-cert --from-file truststorebundle.jks
+# kubectl create -n minio-webhook secret generic lh-cert --from-file truststorebundle.jks
 
 echo "Create  task"
-kubestl apply -f minio/02-ibm-pak.yaml
+kubectl apply -f minio/02-ibm-pak.yaml
 
 echo "Create  pipeline"
-kubestl apply -f minio/03-pipeline.yaml
+kubectl apply -f minio/03-pipeline.yaml
 
 echo "Start  pipeline"
-kubestl create -f minio/04-pipeline-run.yaml
+kubectl create -f minio/04-pipeline-run.yaml
 
 
