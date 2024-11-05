@@ -1,0 +1,374 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: build-and-deploy
+  namespace: csv-downloader
+spec:
+  params:
+    - default: csv-downloader
+      name: APP_NAME
+      type: string
+    - default: 'https://github.ibm.com/data-product-solutions/lifecycle-automation.git'
+      name: GIT_REPO
+      type: string
+    - default: main
+      name: GIT_REVISION
+      type: string
+    - default: 'image-registry.openshift-image-registry.svc:5000/csv-downloader/csv-downloader:latest'
+      name: IMAGE_NAME
+      type: string
+    - default: csv-downloader
+      name: PATH_CONTEXT
+      type: string
+  tasks:
+    - name: fetch-repository
+      params:
+        - name: url
+          value: $(params.GIT_REPO)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: subdirectory
+          value: ''
+        - name: deleteExisting
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: workspace
+    - name: setup-secret
+      params:
+        - name: SCRIPT
+          value: |-
+            cd $(params.PATH_CONTEXT)/manifests
+            export PRESTO_ENDPOINT=$(oc get -n cpd route ibm-lh-lakehouse-presto-01-presto-svc -o jsonpath='{.spec.host}')
+            echo "Create csv-downloader-secret"
+            oc create -n csv-downloader secret generic csv-downloader-secret \
+              --from-literal PRESTO_CATALOG="marketplace" \
+              --from-literal PRESTO_ENDPOINT="$PRESTO_ENDPOINT:443" \
+              --from-literal PRESTO_SCHEMA="acme_m" \
+              --from-literal PRESTO_SSL="true" \
+              --from-literal TRUSTSTORE="/certs/truststorebundle.jks" \
+              --from-literal TRUSTSTORE_PASSWORD="changeit" 
+
+            echo "Extract truststorebundle.jks"
+            oc extract --namespace cpd secret/ibm-lh-tls-secret --keys=truststorebundle.jks --to=.
+
+            echo "Create  lh-cert secret"
+            oc create -n csv-downloader secret generic lh-cert --from-file truststorebundle.jks
+            oc get secrets -n csv-downloader
+      runAfter:
+        - fetch-repository
+      taskRef:
+        kind: Task
+        name: ibm-pak
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace          
+    - name: maven
+      params:
+        - name: MAVEN_IMAGE
+          value: 'registry.redhat.io/ubi8/openjdk-17@sha256:a8165bc2cd5051a96d6937e25ed03155bbd4b731da6e58cebfe2ea83209c16d8'
+        - name: GOALS
+          value:
+            - package
+        - name: MAVEN_MIRROR_URL
+          value: ''
+        - name: SERVER_USER
+          value: ''
+        - name: SERVER_PASSWORD
+          value: ''
+        - name: PROXY_USER
+          value: ''
+        - name: PROXY_PASSWORD
+          value: ''
+        - name: PROXY_PORT
+          value: ''
+        - name: PROXY_HOST
+          value: ''
+        - name: PROXY_NON_PROXY_HOSTS
+          value: ''
+        - name: PROXY_PROTOCOL
+          value: http
+        - name: CONTEXT_DIR
+          value: $(params.PATH_CONTEXT)
+      runAfter:
+        - setup-secret
+      taskRef:
+        kind: ClusterTask
+        name: maven
+      workspaces:
+        - name: source
+          workspace: workspace
+        - name: maven-settings
+          workspace: workspace
+
+    - name: build
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE_NAME)
+        - name: TLSVERIFY
+          value: 'false'
+        - name: CONTEXT
+          value: $(params.PATH_CONTEXT)
+      runAfter:
+        - maven
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: workspace
+    - name: deploy
+      params:
+        - name: SCRIPT
+          value: |-
+            cd $(params.PATH_CONTEXT)/manifests
+            ls -la
+            oc apply -f .
+            APP_URL=$(oc get route csv-downloader -o jsonpath="{.spec.host}")
+            echo -n "$APP_URL" 
+      runAfter:
+        - build
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace
+    - name: publish-api
+      params:
+        - name: SCRIPT
+          value: |-
+            cd $(params.PATH_CONTEXT)/manifests
+            ###################
+            # setup vars      #
+            ###################
+
+            echo "Get APIC_ENDPOINT"
+            export APIC_ENDPOINT=$(oc get route -l app.kubernetes.io/name=platform-api-endpoint -n integration -o jsonpath="{.items[].spec.host}")
+            echo "Get client secret"
+            export APIC_SECRET=$(oc get  -n integration managementcluster api-management-mgmt -o jsonpath="{.status.toolkitCredentialSecret}")
+            export APIC_CLIENT_ID=$(oc extract --namespace integration secret/$APIC_SECRET --keys=credential.json --to=- | jq -r .id)
+            export APIC_CLIENT_SECRET=$(oc extract --namespace integration secret/$APIC_SECRET --keys=credential.json --to=- | jq -r .secret)
+
+            export APIC_ADMIN_REALM="admin/default-idp-1"
+            export APIC_PROVIDER_REALM="provider/openldap"
+            export APIC_ADMIN_ORG="admin"
+            export APIC_ADMIN_USER=admin
+
+            export APIC_PWD=$(oc get secret "api-management-mgmt-admin-pass" -n integration -o jsonpath="{.data.password}"| base64 -d)
+
+            export APIC_MAIL_SERVER="apic-mail"
+            export MAIL_SERVER_HOST="mailserver.development-mailserver"
+            export MAIL_SERVER_PORT=1025
+
+            export BUILD_DIR=rest-build
+            ##### Provider Org
+            export CUSTOMER_NAME=acme
+            export PORG_DEV_TITLE="ACME"
+            export PORG_DEV_NAME=$(echo ${PORG_DEV_TITLE// /-} | awk '{print tolower($0)}')
+
+            export PORG_DEV_OWNER_FN="acme"
+            export PORG_DEV_OWNER_LN="admin"
+            export PORG_DEV_OWNER_EMAIL="${PORG_DEV_OWNER_USER}@${CUSTOMER_NAME}.org"
+            export PORG_DEV_OWNER_USER="developer-1"
+            export PORG_DEV_OWNER_PWD="passw0rd"
+            export CAT_DEV_TITLE="Marketplace"
+            export CAT_DEV_NAME=$(echo ${CAT_DEV_TITLE// /-} | awk '{print tolower($0)}')
+            export APIC_PROVIDER_REALM="provider/openldap"
+
+            export CORG_DEV_TITLE="Consumer Org"
+            export CORG_DEV_NAME=$(echo ${CORG_DEV_TITLE// /-} | awk '{print tolower($0)}')
+
+            export CORG_DEV_OWNER_FN="consumer"
+            export CORG_DEV_OWNER_LN="${CUSTOMER_NAME}"
+            export CORG_DEV_OWNER_USER="consumer-1"
+            export CORG_DEV_OWNER_PWD="passw0rd"
+            export CORG_DEV_OWNER_EMAIL="${CORG_DEV_OWNER_USER}@${CUSTOMER_NAME}.org"
+
+            #############################
+            # Download openapi #
+            #############################
+
+            echo "wait for csv-downloader deployment"
+            i=0
+            while true
+            do
+                status=$(oc get -n csv-downloader deployment/csv-downloader -o yaml | yq '.status.conditions.[] | select(.type == "Available") | contains({"status": "'True'"})')
+                echo "Current status: $status"
+                # Check to see if the deployment exists and apply patch if it does
+                if [ -z "$status" ] || [ $status != "true" ] ; then
+                  echo "[$((120 -$i))] Still waiting for csv-downloader deployment to be ready"
+                else
+                  echo "csv-downloader deployment ready"
+                  break
+                fi
+
+                ((i++))
+                sleep 60
+                if [[ "$i" == '120' ]]; then
+                  echo " csv-downloader deployment not created within timeout limit"
+                  exit 1
+                fi
+            done 
+
+
+            #############################
+            # Download openapi #
+            #############################
+
+            export CSV_ENDPOINT=$(oc get -n csv-downloader route csv-downloader -o jsonpath='{.spec.host}')
+
+            
+
+            echo "wait for csv-downloader route"
+            i=0
+            while true
+            do
+                curl -k https://$CSV_ENDPOINT/openapi -H "Accept: application/yaml"  -o Csv-downloader-api.yaml
+                status=$(cat Csv-downloader-api.yaml | grep openapi)
+                echo "Current status: $status"
+                # Check to see if the route is ready 
+                if [ -z "$status" ]  ; then
+                  echo "[$((120 -$i))] Still waiting for route to be ready"
+                else
+                  echo "csv-downloader route ready"
+                  break
+                fi
+
+                ((i++))
+                sleep 60
+                if [[ "$i" == '120' ]]; then
+                echo " csv-downloader route not created within timeout limit"
+                exit 1
+                fi
+            done 
+
+            API_DEF="./Csv-downloader-api.yaml"
+
+            yq -i '.x-ibm-configuration.properties.target-url.value="https://" + env(CSV_ENDPOINT)' $API_DEF 
+            yq -i '.servers[0].url="https://" + env(CSV_ENDPOINT)' $API_DEF 
+
+            #jq --arg CSV_ENDPOINT "$CSV_ENDPOINT" '."x-ibm-configuration"."properties"."target-url".value="http://"+$CSV_ENDPOINT' openapi.json > openapi1.json
+
+
+
+            API_TITLE=$(yq -r .info.title Csv-downloader-api.yaml)
+            echo "API title is $API_TITLE"
+
+            #############################
+            # LOGIN TO Development pOrg #
+            #############################
+
+            export ORG_TOKEN=$(curl -k -X POST https://$APIC_ENDPOINT/api/token \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\": \"$PORG_DEV_OWNER_USER\",
+            \"password\": \"$PORG_DEV_OWNER_PWD\",
+            \"realm\": \"$APIC_PROVIDER_REALM\", 
+            \"client_id\": \"$APIC_CLIENT_ID\",
+            \"client_secret\": \"$APIC_CLIENT_SECRET\",
+            \"grant_type\": \"password\"}"  | jq -r .access_token)
+
+
+            # Create draft API
+            echo "Creating draft API..."
+            #apiresp=$(apic draft-apis:create --server $APIC_ENDPOINT --org $PORG_DEV_NAME $API_DEF_JSON)
+            # wrap api
+            # jq '{draft_api:.}' openapi1.json > openapi2.json
+            # yq --null-input '.draft_api = load("Csv-downloader-api.yaml")' > draft-csv.yaml
+
+            curl -k --request POST \
+              --url https://$APIC_ENDPOINT/api/orgs/$PORG_DEV_NAME/drafts/draft-apis \
+              --header "Authorization: Bearer $ORG_TOKEN" \
+              --header 'accept: application/yaml' \
+              --header 'content-type: application/yaml' \
+              --data-raw "$(yq --null-input '.draft_api = load("Csv-downloader-api.yaml")')" > create-draft-response.json
+
+            echo "Creating draft Product..."
+            #  apic --debug draft-products:create --server $APIC_ENDPOINT --org $PORG_DEV_NAME Csv-downloader-product.yaml
+
+            #yq --null-input '.draft_product = load("Csv-downloader-product.yaml")' > draft-csv-product.yaml
+            # curl -k --request POST \
+            #   --url https://$APIC_ENDPOINT/api/orgs/$PORG_DEV_NAME/drafts/draft-products \
+            #   --header "Authorization: Bearer $ORG_TOKEN" \
+            #   --header 'accept: application/yaml' \
+            #   --header 'content-type: application/yaml' \
+            #   --data-raw "$(yq --null-input '.draft_product = load("Csv-downloader-product.yaml")')" > create-draft-product-response.yaml
+
+
+            curl -k --request POST \
+              --url https://$APIC_ENDPOINT/api/orgs/$PORG_DEV_NAME/drafts/draft-products \
+              --header "Authorization: Bearer $ORG_TOKEN" \
+              --header 'accept: application/json' \
+              --header 'content-type: application/json' \
+              --data-raw '{ 
+                "draft_product": {
+                    "info": {
+                        "version": "1.0.0",
+                        "title": "Csv downloader",
+                        "name": "csv-downloader"
+                    },
+                    "gateways": [
+                        "datapower-api-gateway"
+                    ],
+                    "plans": {
+                        "default-plan": {
+                            "title": "Default Plan",
+                            "description": "Default Plan",
+                            "rate-limits": {
+                                "default": {
+                                    "value": "100/1hour"
+                                }
+                            }
+                        }
+                    },
+                    "apis": {
+                        "Csv-downloader1.0.0": {
+                            "name": "Csv-downloader:1.0.0"
+                        }
+                    },
+                    "visibility": {
+                        "view": {
+                            "type": "public",
+                            "orgs": [],
+                            "tags": [],
+                            "enabled": true
+                        },
+                        "subscribe": {
+                            "type": "authenticated",
+                            "orgs": [],
+                            "tags": [],
+                            "enabled": true
+                        }
+                    },
+                    "product": "1.0.0"
+                }   
+              }' > create-draft-product-response.json
+
+            export DRAFT_PRODUCT_URL=$(jq -r '.url' create-draft-product-response.json) 
+            echo "DRAFT_PRODUCT_URL: $DRAFT_PRODUCT_URL"
+            # Publish corresponding product
+            echo " "
+            echo "Publishing product"
+
+            # Publish Products to promote to different Catalogs (Dev -> Test -> Prod):
+            # curl -v -k -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' -H "Authorization: bearer $b" $mgmt-url/api/catalogs/{org}/dev/publish-draft-product --data-raw '{"draft_product_url":"$mgmt-url/api/orgs/{org}/drafts/draft-products/{product-id}"}'
+
+            curl -k --request POST \
+              --url https://$APIC_ENDPOINT/api/catalogs/$PORG_DEV_NAME/$CAT_DEV_NAME/publish-draft-product \
+              --header "Authorization: Bearer $ORG_TOKEN" \
+              --header 'content-type: application/json' \
+              --header 'accept: application/json' \
+              --data-raw "{\"draft_product_url\":\"$DRAFT_PRODUCT_URL\"}"
+      runAfter:
+        - deploy
+      taskRef:
+        kind: Task
+        name: ibm-pak
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace          
+  workspaces:
+    - name: workspace

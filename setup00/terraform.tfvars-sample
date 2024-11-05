@@ -1,0 +1,4 @@
+ibmcloud_api_key = "yourAPIkey"
+git_token = "yourIBMgittoken"
+cluster_name ="data-product-pilot"
+region = "us-east"
