@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: ibm-pak
-  namespace: minio-webhook  
+  namespace: dps-portal  
 spec:
   description: |-
     This task runs commands against the cluster provided by user and if not provided then where the Task is being executed.
