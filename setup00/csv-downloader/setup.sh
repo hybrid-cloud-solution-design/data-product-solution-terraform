@@ -10,7 +10,7 @@ if [ -z "$GIT_TOKEN" ] ; then
 fi
 
 echo "Create namespace"
-kubectl apply -f 00-namespace.yaml
+kubectl apply -f csv-downloader/00-namespace.yaml
 echo "Create git secret"
 kubectl create -n csv-downloader secret generic git-token --from-literal username="token" --from-literal password="$GIT_TOKEN" --type=kubernetes.io/basic-auth
 echo "Annotate secret"
@@ -22,7 +22,7 @@ echo "Link secret to pipeline account"
 kubectl patch -n csv-downloader serviceaccount pipeline -p '{"secrets": [{"name": "git-token"}]}'
 
 echo "Set RBAC"
-kubectl apply -f 01-rbac.yaml
+kubectl apply -f csv-downloader/01-rbac.yaml
 
 # export PRESTO_ENDPOINT=$(kubectl get -n cpd route ibm-lh-lakehouse-presto-01-presto-svc -o jsonpath='{.spec.host}')
 
@@ -44,12 +44,12 @@ kubectl apply -f 01-rbac.yaml
 # kubectl create -n csv-downloader secret generic lh-cert --from-file truststorebundle.jks
 
 echo "Create  task"
-kubectl apply -f 02-ibm-pak.yaml
+kubectl apply -f csv-downloader/02-ibm-pak.yaml
 
 echo "Create  pipeline"
-kubectl apply -f 03-pipeline.yaml
+kubectl apply -f csv-downloader/03-pipeline.yaml
 
 echo "Start  pipeline"
-kubectl create -f 04-pipeline-run.yaml
+kubectl create -f csv-downloader/04-pipeline-run.yaml
 
 
