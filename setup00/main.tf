@@ -39,15 +39,15 @@ resource "null_resource" "csv-downloader-setup" {
 # Minio setup
 ############################################################################## 
 
-#resource "null_resource" "minio-setup" {
-#  provisioner "local-exec" {
-#    command = "${path.module}/minio/setup.sh"
-#
-#    environment = {
-#      GIT_TOKEN = var.git_token
-#      KUBECONFIG = local.kubeconfig
-#    }
-#  }
-#}
+resource "null_resource" "minio-setup" {
+  provisioner "local-exec" {
+    command = "${path.module}/minio/setup.sh"
+
+    environment = {
+      GIT_TOKEN = var.git_token
+      KUBECONFIG = local.kubeconfig
+    }
+  }
+}
 
 

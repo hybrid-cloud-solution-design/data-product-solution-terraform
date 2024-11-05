@@ -1,0 +1,237 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: build-and-deploy
+  namespace: minio-webhook
+spec:
+  params:
+    - default: minio-webhook
+      name: APP_NAME
+      type: string
+    - default: 'https://github.ibm.com/data-product-solutions/lifecycle-automation.git'
+      name: GIT_REPO
+      type: string
+    - default: main
+      name: GIT_REVISION
+      type: string
+    - default: 'image-registry.openshift-image-registry.svc:5000/minio-webhook/minio-webhook:latest'
+      name: IMAGE_NAME
+      type: string
+    - default: minio/simple-minio-webhook
+      name: PATH_CONTEXT
+      type: string
+  tasks:
+    - name: fetch-repository
+      params:
+        - name: url
+          value: $(params.GIT_REPO)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: subdirectory
+          value: ''
+        - name: deleteExisting
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: workspace
+    - name: setup-secret
+      params:
+        - name: SCRIPT
+          value: |-
+            echo "Extract LH_S3 creds"
+            export LH_S3_ACCESS_KEY=$(oc extract --namespace cpd secret/ibm-lh-minio-secret --keys=LH_S3_ACCESS_KEY --to=-)
+            export LH_S3_SECRET_KEY=$(oc extract --namespace cpd secret/ibm-lh-minio-secret --keys=LH_S3_SECRET_KEY --to=-)
+            #export LH_S3_ACCESS_KEY=$(oc get secret ibm-lh-minio-secret -n cpd -o jsonpath='{.data.LH_S3_ACCESS_KEY}' | base64 -d)
+            #export LH_S3_SECRET_KEY=$(oc get secret ibm-lh-minio-secret -n cpd -o jsonpath='{.data.LH_S3_SECRET_KEY}' | base64 -d)
+
+            export COS_ENDPOINT=ibm-lh-lakehouse-minio-svc.cpd.svc.cluster.local:9000
+
+            echo "Get APIC_ENDPOINT"
+            export APIC_ENDPOINT=$(oc get route -l app.kubernetes.io/name=platform-api-endpoint -n integration -o jsonpath="{.items[].spec.host}")
+            echo "Get client secret"
+            APIC_SECRET=$(oc get -n integration managementcluster api-management-mgmt -o jsonpath="{.status.toolkitCredentialSecret}")
+            #oc extract --namespace integration secret $APIC_SECRET --keys=credential.json --to=.
+            #cat credential.json
+
+            export APIC_CLIENT_ID=$(oc extract --namespace integration secret/$APIC_SECRET --keys=credential.json --to=- | jq -r .id)
+            export APIC_CLIENT_SECRET=$(oc extract --namespace integration secret/$APIC_SECRET --keys=credential.json --to=- | jq -r .secret)
+            # export APIC_CLIENT_ID=$(jq -r .id credential.json)
+            # export APIC_CLIENT_SECRET=$(jq -r .secret credential.json)
+
+            echo "Create webhook-secret"
+            oc create -n minio-webhook secret generic webhook-secret \
+              --from-literal COS_ENDPOINT="$COS_ENDPOINT" \
+              --from-literal COS_ACCESS_KEY="$LH_S3_ACCESS_KEY" \
+              --from-literal COS_SECRET_KEY="$LH_S3_SECRET_KEY" \
+              --from-literal APIC_USERNAME="developer-1" \
+              --from-literal APIC_PASSWORD="passw0rd" \
+              --from-literal APIC_ENDPOINT="https://$APIC_ENDPOINT" \
+              --from-literal APIC_REALM="provider/openldap" \
+              --from-literal APIC_CLIENT_ID="$APIC_CLIENT_ID" \
+              --from-literal APIC_CLIENT_SECRET="$APIC_CLIENT_SECRET" \
+              --from-literal APIC_ORG="acme" \
+              --from-literal APIC_CATALOG="marketplace" 
+            
+            echo "Download mc"
+            #curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
+            curl https://dl.min.io/client/mc/release/linux-amd64/archive/mc.RELEASE.2024-06-24T19-40-33Z -o mc
+            chmod a+x mc
+
+            env | grep LH
+            env | grep COS
+
+            ls -la
+
+            ./mc alias set lh-s3 http://$COS_ENDPOINT \
+                 $LH_S3_ACCESS_KEY $LH_S3_SECRET_KEY
+
+            ./mc admin info lh-s3
+
+            oc get secrets -n minio-webhook
+      runAfter:
+        - fetch-repository
+      taskRef:
+        kind: Task
+        name: ibm-pak
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace          
+    - name: build
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE_NAME)
+        - name: TLSVERIFY
+          value: 'false'
+        - name: CONTEXT
+          value: $(params.PATH_CONTEXT)
+      runAfter:
+        - setup-secret
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: workspace
+    - name: deploy
+      params:
+        - name: SCRIPT
+          value: |-
+            cd $(params.PATH_CONTEXT)/manifests
+            ls -la
+            oc apply -f .
+            APP_URL=$(oc get route minio-webhook -o jsonpath="{.spec.host}")
+            echo -n "$APP_URL" 
+      runAfter:
+        - build
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace
+    - name: minio-config
+      params:
+        - name: SCRIPT
+          value: |-
+            echo "Extract LH_S3 creds"
+            export LH_S3_ACCESS_KEY=$(oc extract --namespace cpd secret/ibm-lh-minio-secret --keys=LH_S3_ACCESS_KEY --to=-)
+            export LH_S3_SECRET_KEY=$(oc extract --namespace cpd secret/ibm-lh-minio-secret --keys=LH_S3_SECRET_KEY --to=-)
+            export COS_ENDPOINT=ibm-lh-lakehouse-minio-svc.cpd.svc.cluster.local:9000
+            export LDAP_PASSWD=$(oc extract --namespace openldap secret/openldap --keys=adminpassword --to=-)
+            APP_URL=$(oc get route minio-webhook -o jsonpath="{.spec.host}" -n minio-webhook)
+
+            env | grep LH
+            env | grep COS
+
+            ls -la
+
+            ./mc alias set lh-s3 http://$COS_ENDPOINT \
+                 $LH_S3_ACCESS_KEY $LH_S3_SECRET_KEY
+
+            ./mc admin info lh-s3
+
+            # LDAP users cannot login to S3 using uid/pass disabling this
+            # echo "Configure LDAP"
+            # ./mc idp ldap add lh-s3/ \
+            #     server_addr=openldap.openldap:389 \
+            #     lookup_bind_dn=cn=admin,dc=acme,dc=org \
+            #     lookup_bind_password=$LDAP_PASSWD \
+            #     user_dn_search_base_dn=ou=users,dc=acme,dc=org \
+            #     user_dn_search_filter="(&(uid=%s)(objectclass=inetOrgPerson))" \
+            #     group_search_base_dn=ou=users,dc=acme,dc=org \
+            #     group_search_filter="(&(objectclass=groupOfNames)(member=%d))" \
+            #     server_insecure=on 
+            
+            ./mc --version
+            # ./mc admin service restart lh-s3
+            # sleep 10
+            echo "Adding users to minio"
+            ./mc admin user add lh-s3 provider-1 passw0rd
+            ./mc admin user add lh-s3 provider-2 passw0rd
+            ./mc admin user add lh-s3 provider-3 passw0rd
+            ./mc admin user add lh-s3 provider-4 passw0rd
+            ./mc admin user add lh-s3 provider-5 passw0rd
+            ./mc admin user add lh-s3 consumer-1 passw0rd
+            ./mc admin user add lh-s3 consumer-2 passw0rd
+            ./mc admin user add lh-s3 developer-1 passw0rd
+
+            echo "Add policy"
+            ## Replace stars in the policy to narrow to specific folder - e.g. "Resource": ["arn:aws:s3:::my-bucket/*"]
+
+            cat > allbuckets-policy.json <<EOF
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "ListObjectsInBucket",
+                        "Effect": "Allow",
+                        "Action": ["s3:ListBucket"],
+                        "Resource": ["arn:aws:s3:::*"]
+                    },
+                    {
+                        "Sid": "AllObjectActions",
+                        "Effect": "Allow",
+                        "Action": "s3:*Object",
+                        "Resource": ["arn:aws:s3:::*/*"]
+                    }
+                ]
+            }
+            EOF
+
+            ./mc admin policy create lh-s3 allbuckets-rw allbuckets-policy.json
+
+            echo "Attaching policies to users"
+            # mc idp ldap policy attach lh-s3 allbuckets-rw --user='cn=developer-1,ou=users,dc=acme,dc=org'
+            #./mc idp ldap policy attach lh-s3 allbuckets-rw --group='cn=cpd_platform_users,ou=users,dc=acme,dc=org'
+
+            ./mc admin policy attach lh-s3 allbuckets-rw --user provider-1
+            ./mc admin policy attach lh-s3 allbuckets-rw --user provider-2
+            ./mc admin policy attach lh-s3 allbuckets-rw --user provider-3
+            ./mc admin policy attach lh-s3 allbuckets-rw --user provider-4
+            ./mc admin policy attach lh-s3 allbuckets-rw --user provider-5
+            ./mc admin policy attach lh-s3 allbuckets-rw --user consumer-1
+            ./mc admin policy attach lh-s3 allbuckets-rw --user consumer-2
+            ./mc admin policy attach lh-s3 allbuckets-rw --user developer-1
+
+
+
+            echo "Configuring Webhook"
+            ./mc admin config set lh-s3 notify_webhook:simple-webhook endpoint="http://$APP_URL" queue_limit=0 
+            ./mc admin service restart lh-s3
+            sleep 10
+            echo "Create provider-upload bucker and connect webhook"
+            ./mc mb lh-s3/provider-upload
+            ./mc event add lh-s3/provider-upload arn:minio:sqs::simple-webhook:webhook --event put --suffix metadata_of_product.json
+      runAfter:
+        - deploy
+      taskRef:
+        kind: Task
+        name: ibm-pak
+      workspaces:
+        - name: manifest-dir
+          workspace: workspace 
+  workspaces:
+    - name: workspace

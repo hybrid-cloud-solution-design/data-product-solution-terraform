@@ -1,0 +1,35 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: build-and-deploy-
+  namespace: minio-webhook
+  labels:
+    tekton.dev/pipeline: build-and-deploy
+spec:
+  params:
+    - name: APP_NAME
+      value: minio-webhook
+    - name: GIT_REPO
+      value: 'https://github.ibm.com/data-product-solutions/lifecycle-automation.git'
+    - name: GIT_REVISION
+      value: main
+    - name: IMAGE_NAME
+      value: 'image-registry.openshift-image-registry.svc:5000/minio-webhook/minio-webhook:latest'
+    - name: PATH_CONTEXT
+      value: minio/simple-minio-webhook
+  pipelineRef:
+    name: build-and-deploy
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  timeouts:
+    pipeline: 1h0m0s
+  workspaces:
+    - name: workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          volumeMode: Filesystem
