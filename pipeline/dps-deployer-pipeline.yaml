@@ -2539,6 +2539,20 @@ spec:
             homeDirectory: /home/provider-5      
             mail: provider-5@consumer-org.org                             
 
+            # provider-6, users, acme.org
+            dn: cn=provider-6,ou=users,dc=acme,dc=org
+            cn: provider-6
+            sn: Bar2
+            objectClass: inetOrgPerson
+            objectClass: posixAccount
+            objectClass: shadowAccount
+            userPassword:: cGFzc3cwcmQ=
+            uid: provider-6
+            uidNumber: 1005
+            gidNumber: 1005
+            homeDirectory: /home/provider-6      
+            mail: provider-6@consumer-org.org   
+
             # developer-1, users, acme.org
             dn: cn=developer-1,ou=users,dc=acme,dc=org
             cn: developer-1
@@ -2548,8 +2562,8 @@ spec:
             objectClass: shadowAccount
             userPassword:: cGFzc3cwcmQ=
             uid: developer-1
-            uidNumber: 1005
-            gidNumber: 1005
+            uidNumber: 1101
+            gidNumber: 1101
             homeDirectory: /home/developer-1
             mail: developer-1@acme.org
 
@@ -2562,8 +2576,8 @@ spec:
             objectClass: shadowAccount
             userPassword:: cGFzc3cwcmQ=
             uid: consumer-1
-            uidNumber: 1006
-            gidNumber: 1006
+            uidNumber: 1201
+            gidNumber: 1201
             homeDirectory: /home/consumer-1
             mail: consumer-1@consumer-org.org
 
@@ -2576,8 +2590,8 @@ spec:
             objectClass: shadowAccount
             userPassword:: cGFzc3cwcmQ=
             uid: consumer-2
-            uidNumber: 1007
-            gidNumber: 1007
+            uidNumber: 1202
+            gidNumber: 1202
             homeDirectory: /home/consumer-2
             mail: consumer-2@consumer-org.org
 
@@ -2590,6 +2604,7 @@ spec:
             member: cn=provider-3,ou=users,dc=acme,dc=org
             member: cn=provider-4,ou=users,dc=acme,dc=org
             member: cn=provider-5,ou=users,dc=acme,dc=org
+            member: cn=provider-6,ou=users,dc=acme,dc=org
             member: cn=developer-1,ou=users,dc=acme,dc=org
             member: cn=consumer-1,ou=users,dc=acme,dc=org
             member: cn=consumer-2,ou=users,dc=acme,dc=org

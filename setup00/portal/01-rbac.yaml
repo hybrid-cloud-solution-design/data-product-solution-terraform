@@ -15,11 +15,11 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: minio-webhook-secrets-reader
+  name: portal-secrets-reader
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: minio-webhook
+    namespace: dps-portal
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -28,12 +28,27 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: minio-webhook-cluster-reader
+  name: portal-cluster-reader
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: minio-webhook
+    namespace: dps-portal
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-reader  
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: 'system:openshift:scc:anyuid'
+  namespace: dps-portal
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: dps-portal
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 'system:openshift:scc:anyuid'
